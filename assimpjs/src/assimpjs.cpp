@@ -36,7 +36,7 @@ static std::string GetFileNameFromFormat (const std::string& format)
 	return fileName;
 }
 
-static bool ExportScene (const aiScene* scene, const std::string& format, Result& result)
+static bool ExportScene (const aiScene* scene, const std::string& format, Result& result, const bool textureEmbed = false, const FileList* imageFiles = nullptr)
 {
 	if (scene == nullptr) {
 		result.errorCode = ErrorCode::ImportError;
@@ -49,6 +49,26 @@ static bool ExportScene (const aiScene* scene, const std::string& format, Result
 
 	Assimp::ExportProperties exportProperties;
 	exportProperties.SetPropertyBool ("JSON_SKIP_WHITESPACES", true);
+	exportProperties.SetPropertyBool("EMBEDDED_TEXTURE", textureEmbed);
+
+	//@param ptr(const char*) - image file name
+	//@return data array image pointer
+	auto findImageBuffer = [imageFiles](void *ptr) {
+		std::string imageName = reinterpret_cast<const char *>( ptr );
+		std::vector<uint8_t> *imageArray = nullptr;
+		for (size_t fileIndex = 0; fileIndex < imageFiles->FileCount (); fileIndex++) {
+			const File& file = imageFiles->GetFile (fileIndex);
+			// exist path includeing imageName
+			if (file.GetPath().find(imageName) != std::string::npos) {
+				// copy to vector instance
+				imageArray = new std::vector<uint8_t>();
+				imageArray->assign(file.content.begin(), file.content.end());
+			}
+		}
+		return reinterpret_cast<void *>(imageArray);
+	};
+
+	exportProperties.SetPropertyCallback("FIND_IMAGE_SOURCE", findImageBuffer);
 	std::string fileName = GetFileNameFromFormat (format);
 	aiReturn exportResult = exporter.Export (scene, format.c_str (), fileName.c_str (), 0u, &exportProperties);
 	if (exportResult != aiReturn_SUCCESS) {
@@ -71,8 +91,8 @@ Result ConvertFile (const File& file, const std::string& format, const FileLoade
 	return result;
 }
 
-Result ConvertFileList (const FileList& fileList, const std::string& format)
-{
+Result ConvertFileList (const FileList& fileList, const std::string& format, const bool textureEmbed)
+{	
 	if (fileList.FileCount () == 0) {
 		return Result (ErrorCode::NoFilesFound);
 	}
@@ -90,7 +110,7 @@ Result ConvertFileList (const FileList& fileList, const std::string& format)
 	}
 
 	Result result;
-	ExportScene (scene, format, result);
+	ExportScene (scene, format, result, textureEmbed, &fileList);
 	return result;
 }
 

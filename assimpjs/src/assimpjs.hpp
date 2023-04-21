@@ -13,6 +13,6 @@
 #include <string>
 
 Result ConvertFile (const File& file, const std::string& format, const FileLoader& loader);
-Result ConvertFileList (const FileList& fileList, const std::string& format);
+Result ConvertFileList (const FileList& fileList, const std::string& format, const bool textureEmbed);
 
 #endif
